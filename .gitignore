@@ -1,0 +1,27 @@
+# 환경변수
+.env
+
+# 세션 파일 (GitHub Secrets로 관리)
+sessions/
+
+# 임시 이미지
+images/
+
+# 디버그 스크린샷
+debug_screenshots/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,71 @@
+name: Instagram → Kakao Auto Post
+
+on:
+  schedule:
+    # 매일 KST 10:00 (UTC 01:00)
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (Kakao 업로드 / 이메일 생략)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # texts.json commit-back 용
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright + Chromium
+        run: playwright install chromium --with-deps
+
+      - name: Restore Instagram session
+        run: |
+          mkdir -p sessions
+          echo '${{ secrets.INSTAGRAM_STATE_JSON }}' > sessions/instagram_state.json
+
+      - name: Restore Kakao session
+        run: |
+          echo '${{ secrets.KAKAO_STATE_JSON }}' > sessions/kakao_state.json
+
+      - name: Run agent
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GMAIL_EMAIL: ${{ secrets.GMAIL_EMAIL }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          KAKAO_USERNAME: ${{ secrets.KAKAO_USERNAME }}
+          KAKAO_PASSWORD: ${{ secrets.KAKAO_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: python -m src.main
+
+      - name: Commit updated texts.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add texts.json
+          git diff --cached --quiet || git commit -m "chore: update texts.json [skip ci]"
+          git push
+
+      - name: Upload debug screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots-${{ github.run_id }}
+          path: debug_screenshots/
+          retention-days: 3
