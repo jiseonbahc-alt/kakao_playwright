@@ -62,8 +62,8 @@ jobs:
           git diff --cached --quiet || git commit -m "chore: update texts.json [skip ci]"
           git push
 
-      - name: Upload debug screenshots on failure
-        if: failure()
+      - name: Upload debug screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-screenshots-${{ github.run_id }}

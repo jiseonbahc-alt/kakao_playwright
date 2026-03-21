@@ -45,6 +45,8 @@ def _ensure_logged_in(page: Page) -> None:
     page.wait_for_timeout(5000)
 
     current = page.url
+    _save_debug(page, "kakao_session_check")
+    print(f"   세션 확인 URL: {current}")
     if "login" not in current and "accounts.kakao" not in current:
         print("   ✅ 카카오 세션 유효")
         return
@@ -148,18 +150,61 @@ def _clean_text(text: str) -> str:
 
 def upload_post(page: Page, title: str, body: str, img_path: str) -> None:
     """소식(Posts) 임시저장"""
-    page.goto(KAKAO_POST_URL, wait_until="domcontentloaded")
+    page.goto(KAKAO_POST_URL, wait_until="networkidle", timeout=30000)
     page.wait_for_timeout(3000)
+    _save_debug(page, "post_page_loaded")
+    print(f"   현재 URL: {page.url}")
 
-    # 제목 (40자 제한)
-    title_input = page.locator("input.tf_g").first
-    title_input.wait_for(state="visible", timeout=10000)
+    # "새 소식" 또는 "글쓰기" 버튼 클릭 시도 (목록 페이지인 경우)
+    for btn_text in ["새 소식", "글쓰기", "새글 작성", "작성하기"]:
+        try:
+            btn = page.locator(f'a:has-text("{btn_text}"), button:has-text("{btn_text}")').first
+            if btn.is_visible(timeout=2000):
+                btn.click()
+                page.wait_for_timeout(2000)
+                _save_debug(page, "post_after_new_btn")
+                print(f"   ✅ '{btn_text}' 버튼 클릭")
+                break
+        except Exception:
+            continue
+
+    # 제목 입력 (여러 셀렉터 시도)
+    title_input = None
+    for sel in ["input.tf_g", "input[placeholder*='제목']", "input[type='text']"]:
+        try:
+            el = page.locator(sel).first
+            el.wait_for(state="visible", timeout=5000)
+            title_input = el
+            print(f"   ✅ 제목 입력창 발견: {sel}")
+            break
+        except Exception:
+            continue
+
+    if title_input is None:
+        _save_debug(page, "post_no_title_input")
+        print("   ⚠️ 제목 입력창을 찾을 수 없음 - 스크린샷 확인 필요")
+        return
+
     title_input.fill(title[:40])
     page.wait_for_timeout(500)
 
-    # 본문
-    body_area = page.locator("textarea.textbox___1Ig6T").first
-    body_area.wait_for(state="visible", timeout=10000)
+    # 본문 입력
+    body_area = None
+    for sel in ["textarea.textbox___1Ig6T", "textarea[placeholder*='내용']", "textarea"]:
+        try:
+            el = page.locator(sel).first
+            el.wait_for(state="visible", timeout=5000)
+            body_area = el
+            print(f"   ✅ 본문 입력창 발견: {sel}")
+            break
+        except Exception:
+            continue
+
+    if body_area is None:
+        _save_debug(page, "post_no_body_input")
+        print("   ⚠️ 본문 입력창을 찾을 수 없음")
+        return
+
     body_area.fill(body)
     page.wait_for_timeout(500)
 
