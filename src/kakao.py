@@ -255,41 +255,25 @@ def upload_message(page: Page, message: str, img_path: str) -> None:
             print("   ⚠️ 이미지 타입 선택 실패")
 
     page.wait_for_timeout(2000)
+    _save_debug(page, "msg_after_radio")
 
-    # 이미지 업로드
-    # 방법 1: disabled 아닌 file input에 직접 주입 (원본 kakao_agent.py 방식)
-    uploaded = False
-    for sel in ['input.custom.uploadInput', 'input.uploadInput', 'input[type="file"][accept*="image"]', 'input[type="file"]']:
-        try:
-            file_input = page.locator(sel).first
-            file_input.wait_for(state="attached", timeout=3000)
-            is_disabled = page.evaluate("el => el.disabled", file_input.element_handle())
-            if not is_disabled:
-                file_input.set_input_files(img_path)
-                print(f"   ✅ 파일 업로드 완료 (set_input_files: {sel})")
-                uploaded = True
-                break
-        except Exception:
-            continue
+    # 페이지의 file input 상태 출력 (디버그)
+    file_inputs_info = page.evaluate("""() => {
+        const inputs = document.querySelectorAll('input[type="file"]');
+        return Array.from(inputs).map(el => ({
+            id: el.id,
+            className: el.className,
+            disabled: el.disabled,
+            accept: el.accept,
+            visible: el.offsetParent !== null
+        }));
+    }""")
+    print(f"   파일 input 목록: {file_inputs_info}")
 
-    # 방법 2: "첨부" 버튼 클릭 → expect_file_chooser로 가로채기 (원본의 pyautogui 대체)
-    if not uploaded:
-        try:
-            attach_btn = page.locator('button:has-text("첨부")').first
-            attach_btn.wait_for(state="visible", timeout=5000)
-            with page.expect_file_chooser(timeout=5000) as fc_info:
-                attach_btn.click()
-            fc_info.value.set_files(img_path)
-            print("   ✅ 파일 업로드 완료 (첨부 버튼 → file_chooser)")
-            uploaded = True
-        except Exception:
-            pass
-
-    if not uploaded:
-        _save_debug(page, "upload_failed")
-        print("   ⚠️ 파일 업로드 실패")
-
+    # 소식 업로드와 동일한 방식으로 파일 업로드
+    _upload_file(page, 'input[type="file"]', img_path)
     page.wait_for_timeout(3000)
+    _save_debug(page, "msg_after_upload")
 
     # 메시지 입력 (textarea 우선순위 순)
     textarea_selectors = [
