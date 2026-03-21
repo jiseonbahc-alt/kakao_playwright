@@ -7,7 +7,7 @@ import shutil
 from src.config import IMAGES_DIR, DRY_RUN
 from src.state import load_texts, save_texts, filter_new
 from src.instagram import scrape_posts
-from src.openai_gen import generate_title, generate_message
+from src.openai_gen import generate_title, generate_message, translate_to_korean
 from src.kakao import upload_all
 from src.email_notify import send_notification_email
 
@@ -37,11 +37,17 @@ def main() -> None:
         print("📭 새 게시물 없음, 종료")
         return
 
-    # ── 2. OpenAI 콘텐츠 생성 ───────────────────────────────────
+    # ── 2. OpenAI 콘텐츠 생성 (+ 번역 미완료 시 번역) ─────────────
     print("\n🤖 OpenAI 콘텐츠 생성...")
     titles, messages = [], []
 
     for i, eng in enumerate(new_english):
+        # 인스타 번역 실패(None)면 OpenAI로 번역
+        if new_korean[i] is None:
+            print(f"   🔄 게시물 {i+1} OpenAI 번역 중...")
+            new_korean[i] = translate_to_korean(eng)
+            print(f"   ✅ 번역 완료: {new_korean[i][:80]}...")
+
         title = generate_title(eng)
         msg = generate_message(eng)
         titles.append(title)

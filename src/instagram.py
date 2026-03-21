@@ -101,7 +101,7 @@ def _download_image(url: str, path: str) -> bool:
 MAX_POSTS = 5  # 1회 실행당 최대 수집 게시물 수
 
 
-def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str], list[str]]:
+def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str | None], list[str]]:
     """
     Instagram @evonikpc 게시물 수집
 
@@ -165,27 +165,28 @@ def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str], list[st
                     page.keyboard.press("Escape")
                     break
 
-                # 번역 클릭 → 한글 확인 → 실패 시 OpenAI 번역
-                korean_text = english_text
+                # 번역 클릭 → 한글 확인
+                korean_text = None
                 if _click_translate(page):
                     translated = _wait_for_translation(page, english_text)
                     if _is_korean(translated):
                         korean_text = translated
                         print(f"   ✅ 인스타 번역 성공")
                     else:
-                        print(f"   ⚠️ 인스타 번역 미완료 → OpenAI 번역 사용")
-                        korean_text = translate_to_korean(english_text)
+                        print(f"   ⚠️ 인스타 번역 미완료 (결과: {translated[:50]}...)")
                 else:
-                    print(f"   ⚠️ 번역 버튼 없음 → OpenAI 번역 사용")
-                    korean_text = translate_to_korean(english_text)
+                    print(f"   ⚠️ '번역 보기' 버튼 없음")
 
                 english_texts.append(english_text)
-                korean_texts.append(korean_text)
+                korean_texts.append(korean_text)  # None이면 main에서 OpenAI 번역
 
                 print(f"\n{'='*55}")
                 print(f"   게시물 {i+1} 수집 완료")
                 print(f"   🇺🇸 영문 (앞 100자): {english_text[:100]}")
-                print(f"   🇰🇷 한글 (앞 100자): {korean_text[:100]}")
+                if korean_text:
+                    print(f"   🇰🇷 한글 (앞 100자): {korean_text[:100]}")
+                else:
+                    print(f"   🇰🇷 한글: 번역 필요 (OpenAI 예정)")
                 print(f"{'='*55}")
 
                 page.keyboard.press("Escape")
