@@ -230,21 +230,61 @@ def upload_message(page: Page, message: str, img_path: str) -> None:
     page.goto(KAKAO_MSG_URL, wait_until="domcontentloaded")
     page.wait_for_timeout(5000)
 
-    # 이미지 타입 라디오 선택
+    # 이미지 업로드 라디오 선택 (라벨 클릭 → React 상태 반영)
     try:
-        radio = page.locator('input[value="image"], input#fieldRadio2Formedia\\.type').first
-        page.evaluate("el => { el.checked = true; el.dispatchEvent(new Event('change', {bubbles:true})); }", radio.element_handle())
-        print("   ✅ 이미지 타입 선택")
+        label = page.locator('label:has-text("이미지 업로드")').first
+        label.wait_for(state="visible", timeout=5000)
+        label.click()
+        print("   ✅ 이미지 타입 선택 (라벨 클릭)")
     except Exception:
         try:
             page.locator('label:has-text("이미지")').first.click()
+            print("   ✅ 이미지 타입 선택 (이미지 라벨)")
         except Exception:
-            pass
+            print("   ⚠️ 이미지 타입 라디오 선택 실패")
 
     page.wait_for_timeout(2000)
 
-    # 이미지 업로드
-    _upload_file(page, 'input[type="file"]', img_path)
+    # 이미지 업로드 영역으로 스크롤 후 파일 업로드
+    # 방법 1: expect_file_chooser로 업로드 버튼 클릭 가로채기
+    uploaded = False
+    upload_btn_selectors = [
+        'button:has-text("파일 선택")',
+        'button:has-text("업로드")',
+        'label:has-text("파일 선택")',
+        'label:has-text("업로드")',
+        '[class*="upload"] button',
+        '[class*="upload"] label',
+    ]
+    for sel in upload_btn_selectors:
+        try:
+            btn = page.locator(sel).first
+            btn.scroll_into_view_if_needed(timeout=3000)
+            with page.expect_file_chooser(timeout=5000) as fc_info:
+                btn.click()
+            fc_info.value.set_files(img_path)
+            print(f"   ✅ 파일 업로드 완료 (file_chooser: {sel})")
+            uploaded = True
+            break
+        except Exception:
+            continue
+
+    # 방법 2: file input 직접 주입
+    if not uploaded:
+        try:
+            file_input = page.locator('input[type="file"]').first
+            file_input.scroll_into_view_if_needed(timeout=3000)
+            page.evaluate("el => { el.removeAttribute('disabled'); el.style.display='block'; }", file_input.element_handle())
+            file_input.set_input_files(img_path)
+            print("   ✅ 파일 업로드 완료 (set_input_files)")
+            uploaded = True
+        except Exception:
+            pass
+
+    if not uploaded:
+        _save_debug(page, "upload_failed")
+        print("   ⚠️ 파일 업로드 실패")
+
     page.wait_for_timeout(3000)
 
     # 메시지 입력 (textarea 우선순위 순)
