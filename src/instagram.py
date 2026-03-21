@@ -2,13 +2,11 @@
 Instagram @evonikpc 스크래퍼 (Playwright)
 """
 import os
-import re
 import time
 import requests
 from playwright.sync_api import sync_playwright, Page
 
 from src.config import INSTA_STATE, IMAGES_DIR, DEBUG_DIR
-from src.openai_gen import translate_to_korean
 
 
 # ── 헬퍼 ──────────────────────────────────────────────────────────
@@ -49,39 +47,7 @@ def _get_caption(page: Page) -> str:
         return ""
 
 
-def _click_translate(page: Page) -> bool:
-    """'번역 보기' 버튼 클릭"""
-    try:
-        btn = page.locator("span:has-text('번역 보기')").first
-        btn.wait_for(state="visible", timeout=5000)
-        btn.click()
-        return True
-    except Exception:
-        return False
 
-
-def _is_korean(text: str) -> bool:
-    """한글 문자 포함 여부 확인"""
-    return bool(re.search(r"[가-힣]", text))
-
-
-def _wait_for_translation(page: Page, original: str, timeout: int = 15) -> str:
-    """번역 완료 대기 - 한글 문자가 나타날 때까지"""
-    deadline = time.time() + timeout
-    last = ""
-    stable_since = None
-
-    while time.time() < deadline:
-        current = _get_caption(page).strip()
-        if current and current != original and _is_korean(current):
-            if current != last:
-                last = current
-                stable_since = time.time()
-            elif stable_since and time.time() - stable_since >= 2:
-                return current
-        time.sleep(0.5)
-
-    return last or original
 
 
 def _download_image(url: str, path: str) -> bool:
@@ -101,18 +67,16 @@ def _download_image(url: str, path: str) -> bool:
 MAX_POSTS = 5  # 1회 실행당 최대 수집 게시물 수
 
 
-def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str | None], list[str]]:
+def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str]]:
     """
     Instagram @evonikpc 게시물 수집
 
     Returns:
         english_texts: 영문 원문 리스트
-        korean_texts:  한국어 번역 리스트
         img_paths:     다운로드된 이미지 경로 리스트
     """
     whole = ",".join(loaded_texts)
     english_texts: list[str] = []
-    korean_texts: list[str] = []
     img_paths: list[str] = []
 
     with sync_playwright() as p:
@@ -165,28 +129,11 @@ def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str | None], 
                     page.keyboard.press("Escape")
                     break
 
-                # 번역 클릭 → 한글 확인
-                korean_text = None
-                if _click_translate(page):
-                    translated = _wait_for_translation(page, english_text)
-                    if _is_korean(translated):
-                        korean_text = translated
-                        print(f"   ✅ 인스타 번역 성공")
-                    else:
-                        print(f"   ⚠️ 인스타 번역 미완료 (결과: {translated[:50]}...)")
-                else:
-                    print(f"   ⚠️ '번역 보기' 버튼 없음")
-
                 english_texts.append(english_text)
-                korean_texts.append(korean_text)  # None이면 main에서 OpenAI 번역
 
                 print(f"\n{'='*55}")
                 print(f"   게시물 {i+1} 수집 완료")
                 print(f"   🇺🇸 영문 (앞 100자): {english_text[:100]}")
-                if korean_text:
-                    print(f"   🇰🇷 한글 (앞 100자): {korean_text[:100]}")
-                else:
-                    print(f"   🇰🇷 한글: 번역 필요 (OpenAI 예정)")
                 print(f"{'='*55}")
 
                 page.keyboard.press("Escape")
@@ -216,4 +163,4 @@ def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str | None], 
 
         browser.close()
 
-    return english_texts, korean_texts, img_paths
+    return english_texts, img_paths

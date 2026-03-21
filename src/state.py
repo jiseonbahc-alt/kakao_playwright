@@ -26,14 +26,8 @@ def is_duplicate(text: str, whole_texts: list[str]) -> bool:
 
 def filter_new(
     english_texts: list[str],
-    korean_texts: list[str],
     loaded_texts: list[str],
-) -> tuple[list[str], list[str]]:
+) -> list[str]:
     """신규 게시물만 필터링하여 반환"""
     whole = ",".join(loaded_texts)
-    new_en, new_ko = [], []
-    for en, ko in zip(english_texts, korean_texts):
-        if en[30:100] not in whole:
-            new_en.append(en)
-            new_ko.append(ko)
-    return new_en, new_ko
+    return [en for en in english_texts if en[30:100] not in whole]

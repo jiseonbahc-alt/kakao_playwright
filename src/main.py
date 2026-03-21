@@ -7,7 +7,7 @@ import shutil
 from src.config import IMAGES_DIR, DRY_RUN
 from src.state import load_texts, save_texts, filter_new
 from src.instagram import scrape_posts
-from src.openai_gen import generate_title, generate_message, translate_to_korean
+from src.openai_gen import translate_to_korean, generate_title, generate_message
 from src.kakao import upload_all
 from src.email_notify import send_notification_email
 
@@ -22,10 +22,10 @@ def main() -> None:
     # ── 1. Instagram 수집 ────────────────────────────────────────
     print("\n📸 Instagram 수집 시작...")
     loaded_texts = load_texts()
-    english_texts, korean_texts, img_paths = scrape_posts(loaded_texts)
+    english_texts, img_paths = scrape_posts(loaded_texts)
 
     # 신규 게시물 필터링
-    new_english, new_korean = filter_new(english_texts, korean_texts, loaded_texts)
+    new_english = filter_new(english_texts, loaded_texts)
     count = len(new_english)
     new_img_paths = img_paths[:count]
 
@@ -37,27 +37,24 @@ def main() -> None:
         print("📭 새 게시물 없음, 종료")
         return
 
-    # ── 2. OpenAI 콘텐츠 생성 (+ 번역 미완료 시 번역) ─────────────
-    print("\n🤖 OpenAI 콘텐츠 생성...")
-    titles, messages = [], []
+    # ── 2. OpenAI 번역 + 콘텐츠 생성 ────────────────────────────
+    print("\n🤖 OpenAI 번역 및 콘텐츠 생성...")
+    korean_texts, titles, messages = [], [], []
 
     for i, eng in enumerate(new_english):
-        # 인스타 번역 실패(None)면 OpenAI로 번역
-        if new_korean[i] is None:
-            print(f"   🔄 게시물 {i+1} OpenAI 번역 중...")
-            new_korean[i] = translate_to_korean(eng)
-            print(f"   ✅ 번역 완료: {new_korean[i][:80]}...")
+        print(f"\n   게시물 {i+1}/{count} 처리 중...")
 
+        korean = translate_to_korean(eng)
         title = generate_title(eng)
         msg = generate_message(eng)
+
+        korean_texts.append(korean)
         titles.append(title)
         messages.append(msg)
 
-        print(f"\n{'='*55}")
-        print(f"✨ 게시물 {i+1}/{count} - LLM 생성 완료")
+        print(f"   🇰🇷 번역 ({len(korean)}자): {korean[:80]}...")
         print(f"   📌 제목 ({len(title)}자): {title}")
         print(f"   💬 메시지 ({len(msg)}자): {msg[:80]}...")
-        print(f"{'='*55}")
 
     # ── 3. Kakao 업로드 ─────────────────────────────────────────
     if DRY_RUN:
@@ -65,7 +62,7 @@ def main() -> None:
         upload_ok = True
     else:
         print("\n📤 Kakao 업로드 시작...")
-        upload_ok = upload_all(titles, new_korean, messages, new_img_paths)
+        upload_ok = upload_all(titles, korean_texts, messages, new_img_paths)
 
     # texts.json은 업로드 성공 시에만 저장
     if upload_ok:
@@ -81,7 +78,7 @@ def main() -> None:
     posts_data = [
         {
             "english": new_english[i],
-            "korean": new_korean[i],
+            "korean": korean_texts[i],
             "title": titles[i],
             "message": messages[i],
         }
