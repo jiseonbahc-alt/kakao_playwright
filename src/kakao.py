@@ -39,10 +39,30 @@ def _make_context(playwright, headless: bool = True):
     return browser, context
 
 
+def _dismiss_country_popup(page: Page) -> None:
+    """해외 IP 접속 시 나타나는 국가 선택 팝업 처리 (GitHub Actions 미국 IP 대응)"""
+    try:
+        btn = page.get_by_text("Continue to Korea", exact=False)
+        if btn.is_visible(timeout=3000):
+            btn.click()
+            page.wait_for_timeout(2000)
+            print("   ✅ 국가 선택 팝업 → 한국 선택")
+    except Exception:
+        pass
+
+
 def _ensure_logged_in(page: Page) -> None:
     """로그인 상태 확인, 필요 시 자동 로그인 시도"""
     page.goto(KAKAO_POST_URL, wait_until="domcontentloaded")
     page.wait_for_timeout(5000)
+
+    # 해외 IP 국가 선택 팝업 처리
+    _dismiss_country_popup(page)
+
+    # 팝업 후 목적 페이지로 재이동이 필요할 수 있음
+    if page.url != KAKAO_POST_URL:
+        page.goto(KAKAO_POST_URL, wait_until="domcontentloaded")
+        page.wait_for_timeout(3000)
 
     current = page.url
     _save_debug(page, "kakao_session_check")
@@ -151,7 +171,9 @@ def _clean_text(text: str) -> str:
 def upload_post(page: Page, title: str, body: str, img_path: str) -> bool:
     """소식(Posts) 임시저장"""
     page.goto(KAKAO_POST_URL, wait_until="domcontentloaded", timeout=30000)
-    page.wait_for_timeout(5000)
+    page.wait_for_timeout(3000)
+    _dismiss_country_popup(page)
+    page.wait_for_timeout(2000)
     _save_debug(page, "post_page_loaded")
     print(f"   현재 URL: {page.url}")
 
@@ -230,7 +252,9 @@ def upload_post(page: Page, title: str, body: str, img_path: str) -> bool:
 def upload_message(page: Page, message: str, img_path: str) -> bool:
     """피드 메시지 임시저장"""
     page.goto(KAKAO_MSG_URL, wait_until="domcontentloaded")
-    page.wait_for_timeout(5000)
+    page.wait_for_timeout(3000)
+    _dismiss_country_popup(page)
+    page.wait_for_timeout(2000)
 
     # 이미지 업로드 라디오 선택 - 실제 클릭 필요 (React 컴포넌트)
     # "이미지 업로드" 라벨을 직접 클릭
