@@ -9,7 +9,7 @@ from src.state import load_texts, save_texts, filter_new
 from src.instagram import scrape_posts
 from src.openai_gen import translate_to_korean, generate_title, generate_message
 from src.kakao import upload_all
-from src.email_notify import send_notification_email
+from src.email_notify import send_notification_email, send_duplicate_notification_email
 
 
 def main() -> None:
@@ -22,7 +22,7 @@ def main() -> None:
     # ── 1. Instagram 수집 ────────────────────────────────────────
     print("\n📸 Instagram 수집 시작...")
     loaded_texts = load_texts()
-    english_texts, img_paths = scrape_posts(loaded_texts)
+    english_texts, img_paths, duplicate_found = scrape_posts(loaded_texts)
 
     # 신규 게시물 필터링
     new_english = filter_new(english_texts, loaded_texts)
@@ -34,7 +34,12 @@ def main() -> None:
     print(f"{'='*60}")
 
     if count == 0:
-        print("📭 새 게시물 없음, 종료")
+        if duplicate_found:
+            print("📭 중복 게시물로 인해 중단, 종료")
+            if not DRY_RUN:
+                send_duplicate_notification_email()
+        else:
+            print("📭 새 게시물 없음, 종료")
         return
 
     # ── 2. OpenAI 번역 + 콘텐츠 생성 ────────────────────────────

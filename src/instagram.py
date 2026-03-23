@@ -67,17 +67,19 @@ def _download_image(url: str, path: str) -> bool:
 MAX_POSTS = 5  # 1회 실행당 최대 수집 게시물 수
 
 
-def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str]]:
+def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str], bool]:
     """
     Instagram @evonikpc 게시물 수집
 
     Returns:
-        english_texts: 영문 원문 리스트
-        img_paths:     다운로드된 이미지 경로 리스트
+        english_texts:  영문 원문 리스트
+        img_paths:      다운로드된 이미지 경로 리스트
+        duplicate_found: 중복 발견으로 수집 중단 여부
     """
     whole = ",".join(loaded_texts)
     english_texts: list[str] = []
     img_paths: list[str] = []
+    duplicate_found = False
 
     with sync_playwright() as p:
         browser, context = _make_context(p, headless=True)
@@ -127,6 +129,7 @@ def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str]]:
                 if english_text[30:100] in whole:
                     print(f"   ✅ 게시물 {i+1}: 중복 발견 → 수집 중단")
                     page.keyboard.press("Escape")
+                    duplicate_found = True
                     break
 
                 english_texts.append(english_text)
@@ -163,4 +166,4 @@ def scrape_posts(loaded_texts: list[str]) -> tuple[list[str], list[str]]:
 
         browser.close()
 
-    return english_texts, img_paths
+    return english_texts, img_paths, duplicate_found
