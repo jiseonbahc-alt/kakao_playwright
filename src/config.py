@@ -31,7 +31,7 @@ KAKAO_POST_URL = f"https://center-pf.kakao.com/{KAKAO_CHANNEL_ID}/posts"
 KAKAO_MSG_URL = f"https://business.kakao.com/{KAKAO_CHANNEL_ID}/messages/new/feed"
 
 # ── 이메일 수신자 ──────────────────────────────────────
-EMAIL_RECIPIENTS = ["mason.choi@evonik.com"]
+EMAIL_RECIPIENTS = ["sean.bahc@evonik.com"]
 
 # ── 기타 ──────────────────────────────────────────────
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
