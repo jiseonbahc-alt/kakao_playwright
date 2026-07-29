@@ -1,8 +1,10 @@
 """
 이메일 알림 발송
 """
+import os
 import smtplib
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from src.config import GMAIL_EMAIL, GMAIL_APP_PASSWORD, EMAIL_RECIPIENTS, KAKAO_CHANNEL_ID
 
@@ -52,14 +54,19 @@ def send_notification_email(count: int, posts_data: list[dict]) -> None:
     body = f"""안녕하세요!
 
 에보닉 케어솔루션 인스타-카카오 자동화 포스팅 서비스입니다.
-총 {count}개의 신규 게시글이 카카오 채널에 임시저장되었습니다.
+신규 게시글 {count}개의 카카오 게시용 콘텐츠가 생성되었습니다.
+
+아래 제목/내용/메시지를 확인하시고, 첨부된 이미지와 함께 카카오 채널에
+직접 게시(임시저장)해 주세요.
+(카카오는 보안상 자동 로그인이 차단되어 자동 업로드는 지원하지 않습니다.)
 
 {"="*70}
 """
 
     for i, data in enumerate(posts_data):
+        img_note = f"post{i}.jpg (첨부됨)" if data.get("image") else "(이미지 없음)"
         body += f"""
-📌 게시물 {i+1}
+📌 게시물 {i+1}   🖼️ 이미지: {img_note}
 {"─"*50}
 
 📝 영어 원문:
@@ -96,8 +103,22 @@ def send_notification_email(count: int, posts_data: list[dict]) -> None:
     msg = MIMEMultipart()
     msg["From"] = GMAIL_EMAIL
     msg["To"] = ", ".join(EMAIL_RECIPIENTS)
-    msg["Subject"] = f"[에보닉] 카카오 채널 신규 게시글 {count}개 임시저장 완료"
+    msg["Subject"] = f"[에보닉] 카카오 채널 신규 게시글 {count}개 - 수동 게시 요청"
     msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    # 인스타그램 이미지 첨부 (수동 게시용)
+    for i, data in enumerate(posts_data):
+        img_path = data.get("image")
+        if img_path and os.path.exists(img_path):
+            try:
+                with open(img_path, "rb") as f:
+                    img = MIMEImage(f.read())
+                img.add_header(
+                    "Content-Disposition", "attachment", filename=f"post{i+1}.jpg"
+                )
+                msg.attach(img)
+            except Exception as e:
+                print(f"   ⚠️ 이미지 첨부 실패 (post{i+1}): {e}")
 
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as server:

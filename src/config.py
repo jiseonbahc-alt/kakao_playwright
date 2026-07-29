@@ -36,6 +36,12 @@ EMAIL_RECIPIENTS = ["sean.bahc@evonik.com"]
 # ── 기타 ──────────────────────────────────────────────
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 
+# 카카오 자동 업로드 건너뛰기 (기본 True).
+# 카카오는 로그인 세션을 IP/지역에 묶어 관리하므로, GitHub Actions의 해외(미국)
+# IP에서는 세션이 거부되어 자동 업로드가 불가능하다. 대신 생성된 콘텐츠를
+# 이메일로 발송하고 담당자가 카카오에 수동으로 게시한다.
+SKIP_KAKAO = os.getenv("SKIP_KAKAO", "true").lower() == "true"
+
 os.makedirs(SESSIONS_DIR, exist_ok=True)
 os.makedirs(IMAGES_DIR, exist_ok=True)
 os.makedirs(DEBUG_DIR, exist_ok=True)

@@ -4,7 +4,7 @@
 import os
 import shutil
 
-from src.config import IMAGES_DIR, DRY_RUN
+from src.config import IMAGES_DIR, DRY_RUN, SKIP_KAKAO
 from src.state import load_texts, save_texts, filter_new
 from src.instagram import scrape_posts
 from src.openai_gen import translate_to_korean, generate_title, generate_message
@@ -65,6 +65,11 @@ def main() -> None:
     if DRY_RUN:
         print("\n[DRY RUN] Kakao 업로드 생략")
         upload_ok = True
+    elif SKIP_KAKAO:
+        # 카카오는 세션을 IP/지역에 묶으므로 GitHub Actions 해외 IP에서는
+        # 자동 업로드가 불가능하다. 콘텐츠를 이메일로만 발송하고 수동 게시한다.
+        print("\n⏭️  SKIP_KAKAO: Kakao 자동 업로드 생략 (이메일로만 발송)")
+        upload_ok = True
     else:
         print("\n📤 Kakao 업로드 시작...")
         upload_ok = upload_all(titles, korean_texts, messages, new_img_paths)
@@ -76,16 +81,14 @@ def main() -> None:
     else:
         print("⚠️ 업로드 실패 항목이 있어 texts.json 업데이트 생략")
 
-    # ── 4. 정리 및 이메일 ────────────────────────────────────────
-    shutil.rmtree(IMAGES_DIR, ignore_errors=True)
-    os.makedirs(IMAGES_DIR, exist_ok=True)
-
+    # ── 4. 이메일 및 정리 ────────────────────────────────────────
     posts_data = [
         {
             "english": new_english[i],
             "korean": korean_texts[i],
             "title": titles[i],
             "message": messages[i],
+            "image": new_img_paths[i] if i < len(new_img_paths) else None,
         }
         for i in range(count)
     ]
@@ -98,6 +101,10 @@ def main() -> None:
             print(f"메시지: {d['message'][:100]}...")
     else:
         send_notification_email(count, posts_data)
+
+    # 이미지 정리 (이메일 첨부 후에 수행)
+    shutil.rmtree(IMAGES_DIR, ignore_errors=True)
+    os.makedirs(IMAGES_DIR, exist_ok=True)
 
     print("\n" + "=" * 60)
     print(f"🎉 완료! 총 {count}개 게시물 임시저장")

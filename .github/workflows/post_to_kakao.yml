@@ -10,6 +10,10 @@ on:
         description: 'Dry run (Kakao 업로드 / 이메일 생략)'
         type: boolean
         default: false
+      skip_kakao:
+        description: 'Kakao 자동 업로드 생략 (이메일로만 발송). 카카오는 해외 IP에서 세션 거부됨'
+        type: boolean
+        default: true
 
 permissions:
   contents: write   # texts.json commit-back 용
@@ -52,6 +56,8 @@ jobs:
           KAKAO_USERNAME: ${{ secrets.KAKAO_USERNAME }}
           KAKAO_PASSWORD: ${{ secrets.KAKAO_PASSWORD }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          # 스케줄 실행 시 inputs.skip_kakao 는 비어 있으므로 기본값 'true' 적용
+          SKIP_KAKAO: ${{ inputs.skip_kakao || 'true' }}
         run: python -m src.main
 
       - name: Commit updated texts.json
